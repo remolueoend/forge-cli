@@ -1,0 +1,10 @@
+query GitlabGetMR($project_path: ID!, $branch_name: String!) {
+	project(fullPath: $project_path) {
+		mergeRequests(sourceBranches: [$branch_name]) {
+			nodes {
+				iid
+				description
+			}
+		}
+	}
+}
