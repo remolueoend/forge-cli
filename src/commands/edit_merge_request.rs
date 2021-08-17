@@ -1,15 +1,11 @@
-use clap::{App, Arg, ArgMatches, SubCommand};
-use cmd_lib::{run_cmd, run_fun};
+use clap::{App, ArgMatches, SubCommand};
+use cmd_lib::run_cmd;
 use eyre::Context;
 use log::{debug, info, trace};
 use std::io::{Read, Write};
 use tempfile::{self, NamedTempFile};
 
-use crate::{
-    cli::{arg_edit_orgmode, GlobalArgs},
-    queries::gitlab_get_mr::get_merge_request,
-    queries::gitlab_update_mr_desc::update_merge_request_desc,
-};
+use crate::{cli::{GlobalArgs, arg_branch, arg_edit_orgmode, arg_editor}, get_branch_name, queries::gitlab_get_mr::get_merge_request, queries::gitlab_update_mr_desc::update_merge_request_desc};
 
 use super::CommandResult;
 
@@ -29,23 +25,13 @@ pub fn get_subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name(CMD_IDENTIFIER)
         .about(CMD_ABOUT)
         .alias("em")
-        .arg(
-            Arg::with_name("branch")
-                .short("-b")
-                .takes_value(true)
-                .required(false)
-                .help("The name of the branch of the merge request to edit. Default is the currently checked out branch")
-                .env("FORGE_CLI_BRANCH")
-        )
+        .arg(arg_branch())
         .arg(arg_edit_orgmode())
+        .arg(arg_editor())
 }
 
 pub async fn run<'a>(args: &ArgMatches<'a>, global_args: &GlobalArgs) -> CommandResult {
-    let current_branch = if let Some(branch) = args.value_of("branch") {
-        branch.to_string()
-    } else {
-        run_fun!(git branch --show-current).wrap_err("failed to run git to fetch current branch")?
-    };
+    let current_branch = get_branch_name(args)?;
 
     debug!("branch: {}", current_branch);
     debug!("project-path: {}", global_args.project_path);
@@ -78,7 +64,8 @@ pub async fn run<'a>(args: &ArgMatches<'a>, global_args: &GlobalArgs) -> Command
 
     let tmp_file_path = tmp_file.path().to_str().unwrap();
     let editor = &global_args.editor_cmd;
-    run_cmd!($editor $tmp_file_path)?;
+    run_cmd!($editor $tmp_file_path)
+        .wrap_err_with(|| format!("Could not start the editor {}", editor))?;
 
     let mut new_description = String::new();
     let mut updated_file = tmp_file.reopen()?;

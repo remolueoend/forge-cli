@@ -1,5 +1,9 @@
-use cli::build_cli;
+use clap::ArgMatches;
+use cli::{build_cli, ARG_BRANCH};
+use cmd_lib::run_fun;
 use commands::CommandResult;
+use eyre::Context;
+use eyre::Report;
 use loggerv;
 use tokio;
 
@@ -25,4 +29,16 @@ pub async fn run() -> CommandResult {
         .unwrap();
 
     commands::run_command(&cli_args).await
+}
+
+/**
+ * Returns the name of the current branch, either provided by the given CLI arguments,
+ * or falling back to the name of the currently checked out branch.
+ */
+pub fn get_branch_name<'a>(cli_args: &ArgMatches<'a>) -> Result<String, Report> {
+    if let Some(branch) = cli_args.value_of(ARG_BRANCH) {
+        Ok(branch.to_string())
+    } else {
+        run_fun!(git branch --show-current).wrap_err("failed to run git to fetch current branch")
+    }
 }

@@ -11,6 +11,8 @@ Most parameters can be passed as environment variables instead of CLI arguments,
 const ARG_TOKEN: &str = "token";
 const ARG_PROJECT_PATH: &str = "project-path";
 const ARG_EDITOR: &str = "editor";
+pub const ARG_USE_ORGMODE: &str = "use-org-mode";
+pub const ARG_BRANCH: &str = "branch";
 
 /**
  * Returns the global CLI interaface definition.
@@ -25,6 +27,7 @@ pub fn build_cli<'a, 'b>() -> App<'a, 'b> {
         .setting(AppSettings::ArgRequiredElseHelp)
         .subcommand(commands::edit_merge_request::get_subcommand())
         .subcommand(commands::create_issue::get_subcommand())
+        .subcommand(commands::open_mr::get_subcommand())
         .arg(
             Arg::with_name("v")
                 .short("v")
@@ -48,17 +51,8 @@ pub fn build_cli<'a, 'b>() -> App<'a, 'b> {
                 .help("The path of the current project, e.g. 'myusername/myproject' or 'mygroup/myproject'")
                 .env("FORGE_CLI_PROJECT_PATH"),
         )
-        .arg(
-            Arg::with_name(ARG_EDITOR)
-                .short("e")
-                .required(false)
-                .takes_value(true)
-                .help("The command name of the editor to use. Cannot be an alias!. Default is '$EDITOR'")
-                .env("FORGE_CLI_EDITOR"),
-        )
 }
 
-pub const ARG_USE_ORGMODE: &str = "use-org-mode";
 /**
  * Returns the definition of the CLI argument '--use-org-mode', which is used by different sub-commands.
  */
@@ -69,6 +63,23 @@ pub fn arg_edit_orgmode<'a, 'b>() -> Arg<'a, 'b> {
 		.required(false)
 		.help("If set, issues and merge requests are translated from markdown to org mode for local editing")
 		.env("FORGE_CLI_USE_ORGMODE")
+}
+
+pub fn arg_branch<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(ARG_BRANCH)
+        .short("-b")
+        .takes_value(true)
+        .required(false)
+        .help("The name of the branch of the merge request to edit. Default is the currently checked out branch")
+        .env("FORGE_CLI_BRANCH")
+}
+pub fn arg_editor<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(ARG_EDITOR)
+        .short("e")
+        .required(false)
+        .takes_value(true)
+        .help("The command name of the editor to use. Cannot be an alias! Default is '$EDITOR'")
+        .env("FORGE_CLI_EDITOR")
 }
 
 /**
