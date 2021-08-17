@@ -1,19 +1,26 @@
 use clap::ArgMatches;
+use eyre::{eyre, Report};
 
-use crate::{cli::GlobalArgs, errors::AppError};
+use crate::cli::GlobalArgs;
 
-pub mod em;
+pub mod create_issue;
+pub mod edit_merge_request;
 
-pub type CommandResult = Result<(), AppError>;
+pub type CommandResult = Result<(), Report>;
 
 /// runs the appropriate command based on the provided process arguments
-pub fn run_command(cli_args: &ArgMatches) -> CommandResult {
+pub async fn run_command<'a>(cli_args: &ArgMatches<'a>) -> CommandResult {
     let global_args = GlobalArgs::from_cli_args(&cli_args)?;
 
     match cli_args.subcommand() {
-        (em::CMD_IDENTIFIER, Some(cmd_args)) => em::run(cmd_args, &global_args),
-        ("", _) => Err(AppError::CliMissingCommand),
+        (edit_merge_request::CMD_IDENTIFIER, Some(cmd_args)) => {
+            edit_merge_request::run(cmd_args, &global_args).await
+        }
+        (create_issue::CMD_IDENTIFIER, Some(cmd_args)) => {
+            create_issue::run(cmd_args, &global_args).await
+        }
+        ("", _) => Err(eyre!("Missing command. Use --help for more info")),
         // should never be called thanks to `clap`s own validation:
-        (cmd, _) => Err(AppError::CliInvalidCommand(cmd.to_string())),
+        (cmd, _) => Err(eyre!("Invalid or unknown command: {}", cmd.to_string())),
     }
 }

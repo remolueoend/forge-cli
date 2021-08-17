@@ -1,7 +1,7 @@
-use colored::*;
+use color_eyre::eyre::Result;
 
-fn main() {
-    if let Err(err) = forge::run() {
-        eprintln!("{}: {}", "Error".red().bold(), err)
-    }
+fn main() -> Result<()> {
+    color_eyre::install()?;
+
+    forge::run()
 }

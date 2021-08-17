@@ -1,0 +1,11 @@
+mutation GitlabUpdateMRDesc($project_path: ID!, $iid: String!, $desc: String) {
+	mergeRequestUpdate(input: {
+    	projectPath: $project_path,
+    	description: $desc,
+    	iid: $iid
+  	}) {
+    	mergeRequest {
+      		description
+    	}
+  	}
+}

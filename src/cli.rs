@@ -1,5 +1,6 @@
-use crate::{commands, errors::AppError};
+use crate::commands;
 use clap::{App, AppSettings, Arg, ArgMatches};
+use eyre::{Context, Report};
 
 const HELP: &str = r#"
 CLI for interacting with Forge tools, such as Gitlab, Github, et al.
@@ -9,7 +10,12 @@ Most parameters can be passed as environment variables instead of CLI arguments,
 
 const ARG_TOKEN: &str = "token";
 const ARG_PROJECT_PATH: &str = "project-path";
+const ARG_EDITOR: &str = "editor";
 
+/**
+ * Returns the global CLI interaface definition.
+ * Subcommand definitions are loaded from the respective sub-modules in the commands directory.
+ */
 pub fn build_cli<'a, 'b>() -> App<'a, 'b> {
     App::new("forge")
         .version("0.1")
@@ -17,7 +23,15 @@ pub fn build_cli<'a, 'b>() -> App<'a, 'b> {
         .about(HELP)
         .setting(AppSettings::ColoredHelp)
         .setting(AppSettings::ArgRequiredElseHelp)
-        .subcommand(commands::em::get_subcommand())
+        .subcommand(commands::edit_merge_request::get_subcommand())
+        .subcommand(commands::create_issue::get_subcommand())
+        .arg(
+            Arg::with_name("v")
+                .short("v")
+                .required(false)
+                .multiple(true)
+                .help("Sets the level of verbosity")
+        )
         .arg(
             Arg::with_name(ARG_TOKEN)
                 .short("t")
@@ -34,19 +48,47 @@ pub fn build_cli<'a, 'b>() -> App<'a, 'b> {
                 .help("The path of the current project, e.g. 'myusername/myproject' or 'mygroup/myproject'")
                 .env("FORGE_CLI_PROJECT_PATH"),
         )
+        .arg(
+            Arg::with_name(ARG_EDITOR)
+                .short("e")
+                .required(false)
+                .takes_value(true)
+                .help("The command name of the editor to use. Cannot be an alias!. Default is '$EDITOR'")
+                .env("FORGE_CLI_EDITOR"),
+        )
 }
 
-/// Contains all global cli options which are independent of the chosen sub-command
+pub const ARG_USE_ORGMODE: &str = "use-org-mode";
+/**
+ * Returns the definition of the CLI argument '--use-org-mode', which is used by different sub-commands.
+ */
+pub fn arg_edit_orgmode<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(ARG_USE_ORGMODE)
+		.short("o")
+		.takes_value(false)
+		.required(false)
+		.help("If set, issues and merge requests are translated from markdown to org mode for local editing")
+		.env("FORGE_CLI_USE_ORGMODE")
+}
+
+/**
+ * Contains all global cli options which are independent of the chosen sub-command
+ */
 pub struct GlobalArgs {
     pub token: String,
     pub project_path: String,
+    pub editor_cmd: String,
 }
 impl<'a> GlobalArgs {
     /// returns a new global options struct based on the parsed CLI arguments
-    pub fn from_cli_args(arg_matches: &'a ArgMatches) -> Result<GlobalArgs, AppError> {
+    pub fn from_cli_args(arg_matches: &'a ArgMatches) -> Result<GlobalArgs, Report> {
         Ok(GlobalArgs {
             token: arg_matches.value_of(ARG_TOKEN).unwrap().to_string(),
             project_path: arg_matches.value_of(ARG_PROJECT_PATH).unwrap().to_string(),
+            editor_cmd: match arg_matches.value_of(ARG_EDITOR) {
+                None => std::env::var("EDITOR").wrap_err("Missing EDITOR environment variable")?,
+                Some(arg) => String::from(arg),
+            },
         })
     }
 }
