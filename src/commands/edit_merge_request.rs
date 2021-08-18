@@ -1,15 +1,21 @@
 use clap::{App, ArgMatches, SubCommand};
 use cmd_lib::run_cmd;
-use eyre::Context;
+use eyre::{Context, Report};
 use log::{debug, info, trace};
+use std::fs::File;
 use std::io::{Read, Write};
-use tempfile::{self, NamedTempFile};
+use tempfile::{self, tempdir};
 
-use crate::{cli::{GlobalArgs, arg_branch, arg_edit_orgmode, arg_editor}, get_branch_name, queries::gitlab_get_mr::get_merge_request, queries::gitlab_update_mr_desc::update_merge_request_desc};
+use crate::{
+    cli::{arg_branch, arg_edit_orgmode, arg_editor, GlobalArgs, ARG_USE_ORGMODE},
+    get_branch_name,
+    queries::gitlab_get_mr::get_merge_request,
+    queries::gitlab_update_mr_desc::update_merge_request_desc,
+};
 
 use super::CommandResult;
 
-pub const CMD_IDENTIFIER: &str = "edit-merge-request";
+pub const CMD_IDENTIFIER: &str = "edit-mr";
 const CMD_ABOUT: &str = r#"
 Opens a new empty buffer in the system text editor and uploads the content to the remote host as a new issue after the editor is closed.
 The format used is similar to git commits:
@@ -30,8 +36,71 @@ pub fn get_subcommand<'a, 'b>() -> App<'a, 'b> {
         .arg(arg_editor())
 }
 
+/**
+ * Writes the given description to a temporary file and allows the user to edit it.
+ * Returns the edited description. Depending on the given args, it may convert the description
+ * before and after editing it.
+ */
+fn edit_mr_description(
+    mr_iid: &String,
+    description: &String,
+    editor_command: &String,
+    convert_to_org: bool,
+) -> Result<String, Report> {
+    let tmp_dir = tempdir().wrap_err("Could not create temp dir")?;
+
+    // write original description to temp file:
+    let orig_desc_file_path = tmp_dir.path().join(format!("{}.md", mr_iid));
+    let orig_desc_file = File::create(&orig_desc_file_path)?;
+    write!(&orig_desc_file, "{}", description)?;
+
+    let mut org_file_path = orig_desc_file_path.clone();
+    org_file_path.set_extension("org");
+
+    // if required, write converted description to new temp file:
+    let path_to_edit = if convert_to_org {
+        run_cmd!(pandoc -f markdown -t org $orig_desc_file_path -o $org_file_path)
+            .wrap_err("Could not convert the MR description to ORG")?;
+        org_file_path.clone()
+    } else {
+        orig_desc_file_path.clone()
+    };
+
+    run_cmd!($editor_command $path_to_edit).wrap_err_with(|| {
+        format!(
+            "Could not open {:?} in editor {}",
+            path_to_edit, editor_command
+        )
+    })?;
+
+    // convert the edited description back to markdown if necessary:
+    if convert_to_org {
+        run_cmd!(pandoc -f org -t markdown $org_file_path -o $orig_desc_file_path)
+            .wrap_err("Could not convert the edited description back to markdown")?;
+    };
+
+    let mut updated_file = File::open(&orig_desc_file_path).wrap_err_with(|| {
+        format!(
+            "Could not open {:?} with new MR description",
+            orig_desc_file_path
+        )
+    })?;
+    let mut updated_description = String::new();
+    File::read_to_string(&mut updated_file, &mut updated_description)
+        .wrap_err("Failed to read the updated merge request description")?;
+
+    // cleanup temp files
+    tmp_dir.close()?;
+
+    Ok(updated_description)
+}
+
+/**
+ * Runs the edit-mr sub-command.
+ */
 pub async fn run<'a>(args: &ArgMatches<'a>, global_args: &GlobalArgs) -> CommandResult {
     let current_branch = get_branch_name(args)?;
+    let convert_to_org = args.is_present(ARG_USE_ORGMODE);
 
     debug!("branch: {}", current_branch);
     debug!("project-path: {}", global_args.project_path);
@@ -53,34 +122,20 @@ pub async fn run<'a>(args: &ArgMatches<'a>, global_args: &GlobalArgs) -> Command
         )
     })?;
 
-    /*
-     * open merge request description in editor
-     */
-    let tmp_file = NamedTempFile::new()
-        .wrap_err("Could not create temporary file containing the merge request description")?;
-
-    write!(&tmp_file, "{}", mr.description)
-        .wrap_err("Failed to write merge request description to temporary file")?;
-
-    let tmp_file_path = tmp_file.path().to_str().unwrap();
-    let editor = &global_args.editor_cmd;
-    run_cmd!($editor $tmp_file_path)
-        .wrap_err_with(|| format!("Could not start the editor {}", editor))?;
-
-    let mut new_description = String::new();
-    let mut updated_file = tmp_file.reopen()?;
-    updated_file
-        .read_to_string(&mut new_description)
-        .wrap_err("Failed to read the updated merge request description")?;
-
-    debug!(
-        "updating merge request with new description: '{}'",
-        new_description
-    );
+    let new_description = edit_mr_description(
+        &mr.iid,
+        &mr.description,
+        &global_args.editor_cmd,
+        convert_to_org,
+    )?;
 
     /*
      * upload the edited file content as new merge request description:
      */
+    debug!(
+        "updating merge request with new description: '{}'",
+        new_description
+    );
 
     update_merge_request_desc(
         &global_args.token,
