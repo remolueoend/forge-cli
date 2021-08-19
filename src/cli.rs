@@ -3,7 +3,9 @@ use clap::{App, AppSettings, Arg, ArgMatches};
 use eyre::{Context, Report};
 
 const HELP: &str = r#"
-CLI for interacting with Forge tools, such as Gitlab, Github, et al.
+CLI for editing and creating issues and merge requests on Gitlab, Github, et al.
+
+The most prominent commands of this tool allow you to edit and create MRs and issues in your local text editor. They also offer you to edit and create MRs and issues in ORG mode instead of markdown by automatically converting your input before upload.
 
 Most parameters can be passed as environment variables instead of CLI arguments, allowing you to store these values locally per project in an .envrc/.env file (As long as you're not pushing FORGE_CLI_TOKEN, you're fine).
 "#;
