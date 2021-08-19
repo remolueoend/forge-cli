@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+
+WITH_SECRET_ENV_FILE=integ/forge with-secret-env cargo run -- -vv -p remolueoend/old-fashioned-norbit create-issue "$@"

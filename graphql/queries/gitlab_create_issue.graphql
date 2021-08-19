@@ -1,0 +1,8 @@
+mutation GitlabCreateIssue($project_path: ID!, $title: String!, $description: String) {
+  createIssue(input: {projectPath: $project_path, title: $title, description: $description}) {
+    issue {
+      id,
+      webUrl
+    }
+  }
+}

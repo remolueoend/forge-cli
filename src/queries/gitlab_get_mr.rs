@@ -69,14 +69,14 @@ pub async fn get_merge_request(
         .wrap_err_with(|| format!("Failed to parse the merge request details from Gitlab."))?;
 
     if let Some(graphql_errs) = response_body.errors {
-        return Err(AppError::GraphqlError {
+        Err(AppError::GraphqlError {
             message: String::from(
                 "Gitlab returned an error while fetching the merge request details",
             ),
             details: format!("{:?}", graphql_errs[0]),
-        })?;
+        })?
     } else {
-        return parse_mr_response(project_path, response_body)
-            .wrap_err("Failed to get merge request details from graphql response");
+        parse_mr_response(project_path, response_body)
+            .wrap_err("Failed to get merge request details from graphql response")
     }
 }

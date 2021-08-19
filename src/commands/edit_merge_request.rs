@@ -17,13 +17,12 @@ use super::CommandResult;
 
 pub const CMD_IDENTIFIER: &str = "edit-mr";
 const CMD_ABOUT: &str = r#"
-Opens a new empty buffer in the system text editor and uploads the content to the remote host as a new issue after the editor is closed.
-The format used is similar to git commits:
-1. The first line of text is regarded as issue title
-2. There must be an empty line between the title and the body.
-3. All following lines are uploaded as issue description.
+Guesses the merge request related to the currently checked out branch (if no branch specified via -b) and then will:
+1. download its description into a temporary file,
+2. open the system editor to edit the merge request description,
+3. update the merge request on the remote host.
 
-By default, the input is expected to follow the ORG format and is converted to markdown automatically before upload.
+When called with the -o flag, the downloaded markdown description is converted to ORG and back to markdown before and after editing it.
 "#;
 
 /// returns the clap definition for the edit merge-request sub-command

@@ -5,6 +5,7 @@ use reqwest::Response;
 use serde::Serialize;
 use serde_json;
 
+pub mod gitlab_create_issue;
 pub mod gitlab_get_mr;
 pub mod gitlab_update_mr_desc;
 

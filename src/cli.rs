@@ -62,7 +62,6 @@ pub fn arg_edit_orgmode<'a, 'b>() -> Arg<'a, 'b> {
 		.takes_value(false)
 		.required(false)
 		.help("If set, issues and merge requests are translated from markdown to org mode for local editing")
-		.env("FORGE_CLI_USE_ORGMODE")
 }
 
 pub fn arg_branch<'a, 'b>() -> Arg<'a, 'b> {
