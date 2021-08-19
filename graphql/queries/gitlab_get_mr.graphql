@@ -4,6 +4,7 @@ query GitlabGetMR($project_path: ID!, $branch_name: String!) {
 			nodes {
 				iid
 				description
+				webUrl
 			}
 		}
 	}

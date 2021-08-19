@@ -13,16 +13,17 @@ use graphql_client::{GraphQLQuery, Response};
 pub struct GitlabGetMR;
 
 #[derive(Debug)]
-pub struct GetMRResponse {
+pub struct FetchedMergeRequest {
     pub project_path: String,
     pub iid: String,
     pub description: String,
+    pub web_url: String,
 }
 
 fn parse_mr_response(
     project_path: &String,
     data: Response<gitlab_get_mr::ResponseData>,
-) -> Result<GetMRResponse, Report> {
+) -> Result<FetchedMergeRequest, Report> {
     let project = data
         .data
         .wrap_err("missing data")?
@@ -38,10 +39,11 @@ fn parse_mr_response(
 
     match first_mr_opt {
         None => Err(eyre!("Missing merge request")),
-        Some(v) => Ok(GetMRResponse {
+        Some(v) => Ok(FetchedMergeRequest {
             project_path: project_path.clone(),
             iid: v.iid.clone(),
             description: v.description.clone().unwrap_or_default(),
+            web_url: v.web_url.clone().unwrap_or_default(),
         }),
     }
 }
@@ -53,7 +55,7 @@ pub async fn get_merge_request(
     token: &String,
     project_path: &String,
     branch_name: &String,
-) -> Result<GetMRResponse, Report> {
+) -> Result<FetchedMergeRequest, Report> {
     let query_body = GitlabGetMR::build_query(gitlab_get_mr::Variables {
         project_path: project_path.clone(),
         branch_name: branch_name.clone(),

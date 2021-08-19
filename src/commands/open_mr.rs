@@ -27,10 +27,7 @@ pub async fn run<'a>(args: &ArgMatches<'a>, global_args: &GlobalArgs) -> Command
     let branch_name = get_branch_name(args)?;
     let mr = get_merge_request(&global_args.token, &global_args.project_path, &branch_name).await?;
 
-    open::that(format!(
-        "https://gitlab.com/{}/merge_requests/{}",
-        &global_args.project_path, &mr.iid
-    ))?;
+    open::that(mr.web_url)?;
 
     Ok(())
 }
